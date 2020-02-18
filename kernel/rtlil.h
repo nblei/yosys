@@ -661,6 +661,9 @@ struct RTLIL::AttrObject
 	void add_strpool_attribute(RTLIL::IdString id, const pool<string> &data);
 	pool<string> get_strpool_attribute(RTLIL::IdString id) const;
 
+	void set_intvec_attribute(RTLIL::IdString id, const vector<int> &data);
+	vector<int> get_intvec_attribute(RTLIL::IdString id) const;
+
 	void set_src_attribute(const std::string &src);
 	std::string get_src_attribute() const;
 };

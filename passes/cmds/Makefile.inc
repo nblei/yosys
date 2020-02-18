@@ -34,3 +34,4 @@ OBJS += passes/cmds/ltp.o
 OBJS += passes/cmds/bugpoint.o
 OBJS += passes/cmds/scratchpad.o
 OBJS += passes/cmds/logger.o
+OBJS += passes/cmds/sta.o
