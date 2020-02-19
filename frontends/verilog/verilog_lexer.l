@@ -433,12 +433,7 @@ import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 
 ".*" { return TOK_WILDCARD_CONNECT; }
 
-[+-] {
-    if (!specify_mode) REJECT;
-    frontend_verilog_yylval.ch = yytext[0];
-    return TOK_SPECIFY_POL;
-}
-[=*]> {
+[-+]?[=*]> {
 	if (!specify_mode) REJECT;
 	frontend_verilog_yylval.string = new std::string(yytext);
 	return TOK_SPECIFY_OPER;

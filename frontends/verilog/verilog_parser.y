@@ -148,7 +148,6 @@ static void addRange(AstNode *parent, int msb = 31, int lsb = 0, bool isSigned =
 
 %token <string> TOK_STRING TOK_ID TOK_CONSTVAL TOK_REALVAL TOK_PRIMITIVE
 %token <string> TOK_SVA_LABEL TOK_SPECIFY_OPER TOK_MSG_TASKS
-%token <ch> TOK_SPECIFY_POL
 %token TOK_ASSERT TOK_ASSUME TOK_RESTRICT TOK_COVER TOK_FINAL
 %token ATTR_BEGIN ATTR_END DEFATTR_BEGIN DEFATTR_END
 %token TOK_MODULE TOK_ENDMODULE TOK_PARAMETER TOK_LOCALPARAM TOK_DEFPARAM
@@ -180,7 +179,7 @@ static void addRange(AstNode *parent, int msb = 31, int lsb = 0, bool isSigned =
 %type <specify_triple_ptr> specify_triple specify_opt_triple
 %type <specify_rise_fall_ptr> specify_rise_fall
 %type <ast> specify_if specify_condition
-%type <ch> specify_edge specify_polarity
+%type <ch> specify_edge
 
 // operator precedence from low to high
 %left OP_LOR
@@ -790,21 +789,14 @@ specify_item_list:
 	specify_item specify_item_list |
 	/* empty */;
 
-specify_polarity:
-    TOK_SPECIFY_POL |
-    /* empty */ {
-        $$ = 0;
-    };
-
 specify_item:
-	specify_if '(' specify_edge expr specify_polarity TOK_SPECIFY_OPER specify_target ')' '=' specify_rise_fall ';' {
+	specify_if '(' specify_edge expr TOK_SPECIFY_OPER specify_target ')' '=' specify_rise_fall ';' {
 		AstNode *en_expr = $1;
 		char specify_edge = $3;
 		AstNode *src_expr = $4;
-		char oper_polarity = $5;
-		string *oper = $6;
-		specify_target *target = $7;
-		specify_rise_fall *timing = $10;
+		string *oper = $5;
+		specify_target *target = $6;
+		specify_rise_fall *timing = $9;
 
 		if (specify_edge != 0 && target->dat == nullptr)
 			frontend_verilog_yyerror("Found specify edge but no data spec.\n");
@@ -815,7 +807,13 @@ specify_item:
 		cell->children.push_back(new AstNode(AST_CELLTYPE));
 		cell->children.back()->str = target->dat ? "$specify3" : "$specify2";
 
+		char oper_polarity = 0;
 		char oper_type = oper->at(0);
+
+		if (oper->size() == 3) {
+			oper_polarity = oper->at(0);
+			oper_type = oper->at(1);
+		}
 
 		cell->children.push_back(new AstNode(AST_PARASET, AstNode::mkconst_int(oper_type == '*', false, 1)));
 		cell->children.back()->str = "\\FULL";
