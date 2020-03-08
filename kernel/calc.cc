@@ -134,6 +134,7 @@ RTLIL::Const RTLIL::const_not(const RTLIL::Const &arg1, const RTLIL::Const&, boo
 	if (result_len < 0)
 		result_len = arg1.bits.size();
 
+    // TODO: Why is this making a copy of arg1 ???
 	RTLIL::Const arg1_ext = arg1;
 	extend_u0(arg1_ext, result_len, signed1);
 
@@ -154,7 +155,7 @@ static RTLIL::Const logic_wrapper(RTLIL::State(*logic_func)(RTLIL::State, RTLIL:
 		RTLIL::Const arg1, RTLIL::Const arg2, bool signed1, bool signed2, int result_len = -1)
 {
 	if (result_len < 0)
-		result_len = max(arg1.bits.size(), arg2.bits.size());
+		{ result_len = max(arg1.bits.size(), arg2.bits.size()); }
 
 	extend_u0(arg1, result_len, signed1);
 	extend_u0(arg2, result_len, signed2);
@@ -197,27 +198,37 @@ static RTLIL::Const logic_reduce_wrapper(RTLIL::State initial, RTLIL::State(*log
 		temp = logic_func(temp, arg1.bits[i]);
 
 	RTLIL::Const result(temp);
+
+    // TODO: Why is this not using the zero-extend function
 	while (int(result.bits.size()) < result_len)
 		result.bits.push_back(RTLIL::State::S0);
 	return result;
 }
 
-RTLIL::Const RTLIL::const_reduce_and(const RTLIL::Const &arg1, const RTLIL::Const&, bool, bool, int result_len)
+RTLIL::Const RTLIL::const_reduce_and(const RTLIL::Const &arg1,
+                                     const RTLIL::Const&,
+                                     bool, bool, int result_len)
 {
 	return logic_reduce_wrapper(RTLIL::State::S1, logic_and, arg1, result_len);
 }
 
-RTLIL::Const RTLIL::const_reduce_or(const RTLIL::Const &arg1, const RTLIL::Const&, bool, bool, int result_len)
+RTLIL::Const RTLIL::const_reduce_or(const RTLIL::Const &arg1,
+                                    const RTLIL::Const&,
+                                    bool, bool, int result_len)
 {
 	return logic_reduce_wrapper(RTLIL::State::S0, logic_or, arg1, result_len);
 }
 
-RTLIL::Const RTLIL::const_reduce_xor(const RTLIL::Const &arg1, const RTLIL::Const&, bool, bool, int result_len)
+RTLIL::Const RTLIL::const_reduce_xor(const RTLIL::Const &arg1,
+                                     const RTLIL::Const&,
+                                     bool, bool, int result_len)
 {
 	return logic_reduce_wrapper(RTLIL::State::S0, logic_xor, arg1, result_len);
 }
 
-RTLIL::Const RTLIL::const_reduce_xnor(const RTLIL::Const &arg1, const RTLIL::Const&, bool, bool, int result_len)
+RTLIL::Const RTLIL::const_reduce_xnor(const RTLIL::Const &arg1,
+                                      const RTLIL::Const&,
+                                      bool, bool, int result_len)
 {
 	RTLIL::Const buffer = logic_reduce_wrapper(RTLIL::State::S0, logic_xor, arg1, result_len);
 	if (!buffer.bits.empty()) {
@@ -229,12 +240,16 @@ RTLIL::Const RTLIL::const_reduce_xnor(const RTLIL::Const &arg1, const RTLIL::Con
 	return buffer;
 }
 
-RTLIL::Const RTLIL::const_reduce_bool(const RTLIL::Const &arg1, const RTLIL::Const&, bool, bool, int result_len)
+RTLIL::Const RTLIL::const_reduce_bool(const RTLIL::Const &arg1,
+                                      const RTLIL::Const&,
+                                      bool, bool, int result_len)
 {
 	return logic_reduce_wrapper(RTLIL::State::S0, logic_or, arg1, result_len);
 }
 
-RTLIL::Const RTLIL::const_logic_not(const RTLIL::Const &arg1, const RTLIL::Const&, bool signed1, bool, int result_len)
+RTLIL::Const RTLIL::const_logic_not(const RTLIL::Const &arg1,
+                                    const RTLIL::Const&,
+                                    bool signed1, bool, int result_len)
 {
 	int undef_bit_pos_a = -1;
 	BigInteger a = const2big(arg1, signed1, undef_bit_pos_a);
