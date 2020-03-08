@@ -38,7 +38,9 @@ struct ConstEval
 	std::vector<SigMap> stack;
 	RTLIL::State defaultval;
 
-	ConstEval(RTLIL::Module *module, RTLIL::State defaultval = RTLIL::State::Sm) : module(module), assign_map(module), defaultval(defaultval)
+	ConstEval(RTLIL::Module *module,
+              RTLIL::State defaultval = RTLIL::State::Sm)
+        : module(module), assign_map(module), defaultval(defaultval)
 	{
 		CellTypes ct;
 		ct.setup_internals();
@@ -89,6 +91,7 @@ struct ConstEval
 
 	bool eval(RTLIL::Cell *cell, RTLIL::SigSpec &undef)
 	{
+        // TODO: WTF cell type is is $lcu?  Lookahead-carry unit?
 		if (cell->type == ID($lcu))
 		{
 			RTLIL::SigSpec sig_p = cell->getPort(ID(P));
@@ -176,7 +179,8 @@ struct ConstEval
 				if (!eval(yc, undef, cell))
 					return false;
 				if (cell->type == ID($_NMUX_))
-					y_values.push_back(RTLIL::const_not(yc.as_const(), Const(), false, false, GetSize(yc)));
+					y_values.push_back(RTLIL::const_not(yc.as_const(),
+                                       Const(), false, false, GetSize(yc)));
 				else
 					y_values.push_back(yc.as_const());
 			}
