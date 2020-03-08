@@ -24,6 +24,12 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+///////////////////////////////////////////////////////////////////////////////
+/// @class Pass register.h register.cc
+/// @brief Represents a pass on the design in RTLIR
+/// @var pass_name The name of the pass
+/// @var short_help short help documentation
+///////////////////////////////////////////////////////////////////////////////
 struct Pass
 {
 	std::string pass_name, short_help;
@@ -51,8 +57,10 @@ struct Pass
 	void post_execute(pre_post_exec_state_t state);
 
 	void cmd_log_args(const std::vector<std::string> &args);
-	void cmd_error(const std::vector<std::string> &args, size_t argidx, std::string msg);
-	void extra_args(std::vector<std::string> args, size_t argidx, RTLIL::Design *design, bool select = true);
+	void cmd_error(const std::vector<std::string> &args, size_t argidx,
+                   std::string msg);
+	void extra_args(std::vector<std::string> args, size_t argidx,
+                    RTLIL::Design *design, bool select = true);
 
 	static void call(RTLIL::Design *design, std::string command);
 	static void call(RTLIL::Design *design, std::vector<std::string> args);

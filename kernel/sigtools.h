@@ -229,6 +229,11 @@ using sort_by_name_id_guard = typename std::enable_if<std::is_same<T,RTLIL::Cell
 template<typename T>
 class SigSet<T, sort_by_name_id_guard<T>> : public SigSet<T, RTLIL::sort_by_name_id<typename std::remove_pointer<T>::type>> {};
 
+///////////////////////////////////////////////////////////////////////////////
+/// @class SigMap kernel/sigtools.h
+/// @brief Provides unique representation of a signal set by mapping
+///        signal identifiers to underlying signals
+///////////////////////////////////////////////////////////////////////////////
 struct SigMap
 {
 	mfp<SigBit> database;
@@ -262,6 +267,13 @@ struct SigMap
 			add(it.first, it.second);
 	}
 
+    ///////////////////////////////////////////////////////////////////////////
+    /// @brief A mutli-bit connection to the SigMap.  Since both end points of
+    ///        a connection are on the same wire, they are merged into the same
+    ///        class in the underlying mfp (Union-Find) data structure
+    /// @param from RTLIL::SigSpec representing the driver of the connection
+    /// @param to RTLIL::SigSpec representing the driven end of the connection
+    ///////////////////////////////////////////////////////////////////////////
 	void add(RTLIL::SigSpec from, RTLIL::SigSpec to)
 	{
 		log_assert(GetSize(from) == GetSize(to));
@@ -281,6 +293,8 @@ struct SigMap
 				if (bf.wire == nullptr)
 					database.ipromote(bfi);
 
+                // TODO: How can the 'to' port of the wire be nullptr but not
+                //       the 'from' port?
 				if (bt.wire == nullptr)
 					database.ipromote(bti);
 			}
@@ -296,11 +310,18 @@ struct SigMap
 		}
 	}
 
+    ////////////////////////////////////////////////////////////////////////////
+    /// @brief Transforms the SigBit's ID to the unique class representative
+    ////////////////////////////////////////////////////////////////////////////
 	void apply(RTLIL::SigBit &bit) const
 	{
 		bit = database.find(bit);
 	}
 
+    ///////////////////////////////////////////////////////////////////////////
+    /// @brief Transforms the ID of each SigBit in the SigSpec to its unique
+    ///        class representative
+    ///////////////////////////////////////////////////////////////////////////
 	void apply(RTLIL::SigSpec &sig) const
 	{
 		for (auto &bit : sig)
