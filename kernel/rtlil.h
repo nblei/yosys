@@ -21,6 +21,7 @@
 
 #ifndef RTLIL_H
 #define RTLIL_H
+#define COMPILE_BRISC
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -53,6 +54,16 @@ namespace RTLIL
 		CONST_FLAG_REAL   = 4   // only used for parameters
 	};
 
+#ifdef COMPILE_BRISC
+    enum struct Compr {
+        LT,     /// Less Than
+        EQ,     /// Equal
+        GT,     /// Greather Than
+        NC,     /// No Comparison
+        ER      /// Error
+    };
+#endif
+
 	struct Const;
 	struct AttrObject;
 	struct Selection;
@@ -71,6 +82,11 @@ namespace RTLIL
 	struct SwitchRule;
 	struct SyncRule;
 	struct Process;
+#ifdef COMPILE_BRISC
+    struct BRISCConst;
+    struct Poset;
+    struct BRISC;
+#endif
 
 	typedef std::pair<SigSpec, SigSpec> SigSig;
 
@@ -237,7 +253,8 @@ namespace RTLIL
 			log_assert(refcount == 0);
 
 			if (yosys_xtrace) {
-				log("#X# Removed IdString '%s' with index %d.\n", global_id_storage_.at(idx), idx);
+				log("#X# Removed IdString '%s' with index %d.\n",
+                        global_id_storage_.at(idx), idx);
 				log_backtrace("-X- ", yosys_xtrace-1);
 			}
 
@@ -288,16 +305,23 @@ namespace RTLIL
 			return index_ < rhs.index_;
 		}
 
-		inline bool operator==(const IdString &rhs) const { return index_ == rhs.index_; }
-		inline bool operator!=(const IdString &rhs) const { return index_ != rhs.index_; }
+		inline bool operator==(const IdString &rhs) const
+            { return index_ == rhs.index_; }
+		inline bool operator!=(const IdString &rhs) const
+            { return index_ != rhs.index_; }
 
-		// The methods below are just convenience functions for better compatibility with std::string.
+		// The methods below are just convenience functions for better
+        // compatibility with std::string.
 
-		bool operator==(const std::string &rhs) const { return str() == rhs; }
-		bool operator!=(const std::string &rhs) const { return str() != rhs; }
+		bool operator==(const std::string &rhs) const
+            { return str() == rhs; }
+		bool operator!=(const std::string &rhs) const
+            { return str() != rhs; }
 
-		bool operator==(const char *rhs) const { return strcmp(c_str(), rhs) == 0; }
-		bool operator!=(const char *rhs) const { return strcmp(c_str(), rhs) != 0; }
+		bool operator==(const char *rhs) const
+            { return strcmp(c_str(), rhs) == 0; }
+		bool operator!=(const char *rhs) const
+            { return strcmp(c_str(), rhs) != 0; }
 
 		char operator[](size_t i) const {
 			const char *p = c_str();
@@ -585,6 +609,70 @@ namespace RTLIL
 	};
 };
 
+
+#ifdef COMPILE_BRISC
+///////////////////////////////////////////////////////////////////////////////
+/// @class RTLIL::Poset kernel/rtlil.h
+/// @brief A data structure representing a 'active' elements of a poset, where
+///        'active' means elements which have been determined relevant, and
+///        which have no strictly greater element currently in the collection.
+/// @see   RTLIL::Poset::cmp for the comparison used to determine the partial ordering
+///////////////////////////////////////////////////////////////////////////////
+struct RTLIL::Poset
+{
+    /// @var list of evaluated signals (input ports & regs).  List instead of
+    ///      vector due to need to efficiently remove elements from collection
+    std::list<Yosys::RTLIL::Const> max_poset_;
+
+    ///////////////////////////////////////////////////////////////////////////
+    /// @brief Inserts an RTLIL::Const into the Poset.  The Poset may not
+    ///        actually contain it if it already contains a larger value
+    ///
+    /// @param con The RTLIL::Const to insert into the Poset
+    /// @return insert returns true iff the Poset did not already contain
+    ///         a larger value
+    ///////////////////////////////////////////////////////////////////////////
+    bool insert(const RTLIL::Const &con);
+
+private:
+    ///////////////////////////////////////////////////////////////////////////
+    /// @brief Does less than or equal comparison of two elements of the Poset
+    ///
+    /// @param conL The left hand side of the less than comparison
+    /// @param conR The right hand side of the less than comparison
+    /// @return lt returns true iff the conL <= conR
+    ///////////////////////////////////////////////////////////////////////////
+    bool compare(const RTLIL::Const &conL);
+
+    ///////////////////////////////////////////////////////////////////////////
+    /// @brief compares two RTLIL::Const structures using BRISC comparison
+    /// @return return negative number if 
+    ///////////////////////////////////////////////////////////////////////////
+    static Compr cmp(const RTLIL::Const& L, const RTLIL::Const& R);
+
+    ///////////////////////////////////////////////////////////////////////////
+    /// @var compare_lut produces the result of a RTLIL::State comparison
+    ///      suitable for BRISC.  Indexing is down as
+    ///      compare_lut[left operand][right operand]
+    ///////////////////////////////////////////////////////////////////////////
+    static constexpr Compr compare_lut [6][6] = {
+    // { RTLIL::S0, RTLIL::S1, RTLIL::Sx, RTLIL::Sz, RTLIL::Sa, RTLIL::Sm}
+       { Compr::EQ, Compr::NC, Compr::LT, Compr::ER, Compr::ER, Compr::ER}, // RTLIL::S0
+       { Compr::NC, Compr::EQ, Compr::LT, Compr::ER, Compr::ER, Compr::ER}, // RTLIL::S1
+       { Compr::GT, Compr::GT, Compr::EQ, Compr::ER, Compr::ER, Compr::ER}, // RTLIL::Sx
+       { Compr::ER, Compr::ER, Compr::ER, Compr::ER, Compr::ER, Compr::ER}, // RTLIL::Sz
+       { Compr::ER, Compr::ER, Compr::ER, Compr::ER, Compr::ER, Compr::ER}, // RTLIL::Sa
+       { Compr::ER, Compr::ER, Compr::ER, Compr::ER, Compr::ER, Compr::ER} // RTLIL::Sm
+    };
+};
+
+struct RTLIL::BRISC {
+    RTLIL::Poset poset;
+    RTLIL::Design* design;
+    BRISC(RTLIL::Design* design) : design(design) {}
+};
+#endif // BRISC
+
 struct RTLIL::Const
 {
 	int flags;
@@ -690,12 +778,19 @@ struct RTLIL::SigChunk
 	bool operator !=(const RTLIL::SigChunk &other) const;
 };
 
+///////////////////////////////////////////////////////////////////////////////
+/// @class RTLIL::SigBit kernel/rtlil.h kernel/rtlil.h
+/// @brief Represents a signal bit.  Each bit can either be from a wire, or be
+///        a Constnat value
+///////////////////////////////////////////////////////////////////////////////
 struct RTLIL::SigBit
 {
 	RTLIL::Wire *wire;
+    /// @var data The constant value of the bit, if wire is not null
+    /// @var offset The offset of the bit in the wire
 	union {
-		RTLIL::State data; // used if wire == NULL
-		int offset;        // used if wire != NULL
+		RTLIL::State data; /// used if wire == NULL
+		int offset;        /// used if wire != NULL
 	};
 
 	SigBit();
@@ -968,6 +1063,10 @@ struct RTLIL::Design
 	std::vector<RTLIL::Selection> selection_stack;
 	dict<RTLIL::IdString, RTLIL::Selection> selection_vars;
 	std::string selected_active_module;
+
+#ifdef COMPILE_BRISC
+    RTLIL::BRISC brisc;
+#endif
 
 	Design();
 	~Design();
@@ -1305,6 +1404,15 @@ public:
 #endif
 };
 
+///////////////////////////////////////////////////////////////////////////////
+/// @class RTLIL::Wire
+/// @brief Represents a multibit wire
+/// @var int width  The total number of bits.  E.g. 10 for [9:0]
+/// @var int start_offset the lowest bit ffset. E.g. 3 for [9:3]
+/// @var int port_id  Zero for non-ports.  Positive for ports.
+/// @var bool port_input True for input and inout ports
+/// @var bool port_output True for output and inout ports
+///////////////////////////////////////////////////////////////////////////////
 struct RTLIL::Wire : public RTLIL::AttrObject
 {
 	unsigned int hashidx_;
@@ -1323,7 +1431,7 @@ public:
 
 	RTLIL::Module *module;
 	RTLIL::IdString name;
-	int width, start_offset, port_id;
+	int width, start_offset, port_id; // port_id > 0 <-> port
 	bool port_input, port_output, upto;
 
 #ifdef WITH_PYTHON
@@ -1362,6 +1470,7 @@ public:
 	Cell(RTLIL::Cell &other) = delete;
 	void operator=(RTLIL::Cell &other) = delete;
 
+    // Every Single Cell has an 8-byte pointer to its Module????
 	RTLIL::Module *module;
 	RTLIL::IdString name;
 	RTLIL::IdString type;
@@ -1459,13 +1568,49 @@ struct RTLIL::Process : public RTLIL::AttrObject
 
 
 inline RTLIL::SigBit::SigBit() : wire(NULL), data(RTLIL::State::S0) { }
+
 inline RTLIL::SigBit::SigBit(RTLIL::State bit) : wire(NULL), data(bit) { }
-inline RTLIL::SigBit::SigBit(bool bit) : wire(NULL), data(bit ? State::S1 : State::S0) { }
-inline RTLIL::SigBit::SigBit(RTLIL::Wire *wire) : wire(wire), offset(0) { log_assert(wire && wire->width == 1); }
-inline RTLIL::SigBit::SigBit(RTLIL::Wire *wire, int offset) : wire(wire), offset(offset) { log_assert(wire != nullptr); }
-inline RTLIL::SigBit::SigBit(const RTLIL::SigChunk &chunk) : wire(chunk.wire) { log_assert(chunk.width == 1); if (wire) offset = chunk.offset; else data = chunk.data[0]; }
-inline RTLIL::SigBit::SigBit(const RTLIL::SigChunk &chunk, int index) : wire(chunk.wire) { if (wire) offset = chunk.offset + index; else data = chunk.data[index]; }
-inline RTLIL::SigBit::SigBit(const RTLIL::SigBit &sigbit) : wire(sigbit.wire), data(sigbit.data){if(wire) offset = sigbit.offset;}
+
+inline RTLIL::SigBit::SigBit(bool bit)
+    : wire(NULL), data(bit ? State::S1 : State::S0) { }
+
+inline RTLIL::SigBit::SigBit(RTLIL::Wire *wire)
+    : wire(wire), offset(0)
+{
+    log_assert(wire && wire->width == 1);
+}
+
+inline RTLIL::SigBit::SigBit(RTLIL::Wire *wire, int offset)
+    : wire(wire), offset(offset)
+{
+    log_assert(wire != nullptr);
+}
+
+inline RTLIL::SigBit::SigBit(const RTLIL::SigChunk &chunk)
+    : wire(chunk.wire)
+{
+    log_assert(chunk.width == 1);
+    if (wire)
+        offset = chunk.offset;
+    else
+        data = chunk.data[0];
+}
+
+inline RTLIL::SigBit::SigBit(const RTLIL::SigChunk &chunk, int index)
+    : wire(chunk.wire)
+{
+    if (wire)
+        offset = chunk.offset + index;
+    else
+        data = chunk.data[index];
+}
+
+inline RTLIL::SigBit::SigBit(const RTLIL::SigBit &sigbit)
+    : wire(sigbit.wire), data(sigbit.data)
+{
+    if (wire)
+        offset = sigbit.offset;
+}
 
 inline bool RTLIL::SigBit::operator<(const RTLIL::SigBit &other) const {
 	if (wire == other.wire)

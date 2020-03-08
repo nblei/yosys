@@ -48,6 +48,86 @@ IdString RTLIL::ID::whitebox;
 IdString RTLIL::ID::blackbox;
 dict<std::string, std::string> RTLIL::constpad;
 
+#ifdef COMPILE_BRISC
+RTLIL::Compr
+RTLIL::Poset::cmp(const RTLIL::Const& L, const RTLIL::Const& R)
+{
+    using namespace Yosys;
+    bool lt = true;
+    bool gt = true;
+    bool eq = L.size() == R.size();
+    if (L.size() != R.size()) {
+        log_error("Cannot compare two BRISC RTLIL::Const of different size");
+        exit(1);
+    }
+
+    for (int i = 0; i < L.size(); ++i) {
+        RTLIL::State sl = L.bits[i];
+        RTLIL::State sr = R.bits[i];
+        RTLIL::Compr c = RTLIL::Poset::compare_lut[sl][sr];
+        switch (c) {
+            case (RTLIL::Compr::LT):
+                gt = false;
+                eq = false;
+                break;
+            case (RTLIL::Compr::GT):
+                lt = false;
+                eq = false;
+                break;
+            case (RTLIL::Compr::EQ):
+                break;
+            case (RTLIL::Compr::NC):
+                return  RTLIL::Compr::NC;
+                break;
+            case (RTLIL::Compr::ER):
+                log_error("Illegal Comparison result");
+                return RTLIL::Compr::ER;
+                break;
+        }
+    }
+    if (eq)
+        return RTLIL::Compr::EQ;
+    if (lt)
+        return RTLIL::Compr::LT;
+    if (gt)
+        return RTLIL::Compr::GT;
+    return RTLIL::Compr::NC;
+}
+
+
+bool
+RTLIL::Poset::insert(const RTLIL::Const& L)
+{
+    bool rv = false;
+    std::vector<std::list<Yosys::RTLIL::Const>::iterator> elem_to_remove;
+    for (auto R = this->max_poset_.begin(); R != this->max_poset_.end(); ++R) {
+        RTLIL::Compr c = RTLIL::Poset::cmp(L, *R);
+        switch (c) {
+            // If LT or EQ, then we have no need to do anything -- there is
+            // already a larger element found, so we goto done
+            case (RTLIL::Compr::LT):
+            case (RTLIL::Compr::EQ):
+                goto done;
+            case (RTLIL::Compr::GT):
+                elem_to_remove.push_back(R);
+                break;
+            case (RTLIL::Compr::NC):
+                break;
+            case (RTLIL::Compr::ER):
+                log_error("Unexpected compare value in %s",
+                          __PRETTY_FUNCTION__);
+                exit(1);
+        }
+    }
+    rv = true;
+    for (auto it : elem_to_remove) {
+        this->max_poset_.remove(*it);
+    }
+done:
+    return rv;
+}
+#endif // BRISC
+
 RTLIL::Const::Const()
 {
 	flags = RTLIL::CONST_FLAG_NONE;
@@ -2999,6 +3079,7 @@ void RTLIL::SigSpec::pack() const
 	RTLIL::SigChunk *last = NULL;
 	int last_end_offset = 0;
 
+    // TODO: WTF is this even doing????
 	for (auto &bit : old_bits) {
 		if (last && bit.wire == last->wire) {
 			if (bit.wire == NULL) {
