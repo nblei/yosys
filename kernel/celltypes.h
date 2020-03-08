@@ -55,7 +55,10 @@ struct CellTypes
 		setup_stdcells_mem();
 	}
 
-	void setup_type(RTLIL::IdString type, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs, bool is_evaluable = false)
+	void setup_type(RTLIL::IdString type,
+                    const pool<RTLIL::IdString> &inputs,
+                    const pool<RTLIL::IdString> &outputs,
+                    bool is_evaluable = false)
 	{
 		CellType ct = {type, inputs, outputs, is_evaluable};
 		cell_types[ct.type] = ct;
