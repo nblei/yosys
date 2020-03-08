@@ -18,6 +18,7 @@
  */
 
 #include "kernel/yosys.h"
+#include <list>
 
 #ifndef RTLIL_H
 #define RTLIL_H

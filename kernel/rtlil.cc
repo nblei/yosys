@@ -49,6 +49,8 @@ IdString RTLIL::ID::blackbox;
 dict<std::string, std::string> RTLIL::constpad;
 
 #ifdef COMPILE_BRISC
+/// Have to do this again because C++ < 17 is stupid
+constexpr RTLIL::Compr RTLIL::Poset::compare_lut[6][6];
 RTLIL::Compr
 RTLIL::Poset::cmp(const RTLIL::Const& L, const RTLIL::Const& R)
 {
@@ -458,7 +460,7 @@ void RTLIL::Selection::optimize(RTLIL::Design *design)
 	}
 }
 
-RTLIL::Design::Design()
+RTLIL::Design::Design() : brisc(RTLIL::BRISC(this))
 {
 	static unsigned int hashidx_count = 123456789;
 	hashidx_count = mkhash_xorshift(hashidx_count);
