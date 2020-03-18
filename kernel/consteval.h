@@ -72,13 +72,23 @@ struct ConstEval
 		stack.pop_back();
 	}
 
-	void set(RTLIL::SigSpec sig, RTLIL::Const value)
+
+	void set(RTLIL::SigSpec sig, RTLIL::Const value, bool overwrite=false)
 	{
 		assign_map.apply(sig);
 #ifndef NDEBUG
-		RTLIL::SigSpec current_val = values_map(sig);
-		for (int i = 0; i < GetSize(current_val); i++)
-			log_assert(current_val[i].wire != NULL || current_val[i] == value.bits[i]);
+        if (!overwrite) {
+            RTLIL::SigSpec current_val = values_map(sig);
+            for (int i = 0; i < GetSize(current_val); i++) {
+                if (current_val[i].wire == NULL) {
+                    log("current_val[i]: %d, value.bits[i]: %d\n",
+                            current_val[i].data,
+                            value.bits[i]);
+                }
+                log_assert(current_val[i].wire != NULL ||
+                           current_val[i] == value.bits[i]);
+            }
+        }
 #endif
 		values_map.add(sig, RTLIL::SigSpec(value));
 	}

@@ -18,13 +18,17 @@
  */
 
 #include "kernel/yosys.h"
+#include "passes/brisc/json.hpp"
 #include <list>
+#include <deque>
 
 #ifndef RTLIL_H
 #define RTLIL_H
 #define COMPILE_BRISC
 
 YOSYS_NAMESPACE_BEGIN
+
+struct ConstEval;
 
 namespace RTLIL
 {
@@ -633,9 +637,15 @@ struct RTLIL::Poset
     /// @return insert returns true iff the Poset did not already contain
     ///         a larger value
     ///////////////////////////////////////////////////////////////////////////
-    bool insert(const RTLIL::Const &con);
+    bool insert(RTLIL::Const& con);
+
+    /// @brief Removes elements which are no longer needed
+    void clean();
+
+    size_t size();
 
 private:
+    std::vector<std::list<RTLIL::Const>::iterator> elem_to_remove;
     ///////////////////////////////////////////////////////////////////////////
     /// @brief Does less than or equal comparison of two elements of the Poset
     ///
@@ -670,7 +680,34 @@ private:
 struct RTLIL::BRISC {
     RTLIL::Poset poset;
     RTLIL::Design* design;
+    nlohmann::json j;
+    std::string clock;
+    std::map<std::string, RTLIL::Const> insts;
     BRISC(RTLIL::Design* design) : design(design) {}
+    RTLIL::SigSpec* inports_spec    = nullptr;
+    RTLIL::SigSpec* outports_spec   = nullptr;
+    RTLIL::SigSpec* outdff_spec     = nullptr;
+    RTLIL::SigSpec* indff_spec      = nullptr;
+    RTLIL::SigSpec* all_sigs        = nullptr;
+    RTLIL::SigSpec* initial_values  = nullptr;
+    std::set<IdString> input_ports;
+    std::set<IdString> output_ports;
+    std::set<IdString> input_dff;
+    std::set<IdString> output_dff;
+    std::unordered_map<Wire*, Wire*> dff_in_to_out;
+
+    // Temporary state holder --- gets moved into poset later
+    // std::deque<RTLIL::Const> state_container;
+    bool added_state;
+    ConstEval* ce = nullptr;
+
+    std::vector<RTLIL::Cell*> dff_cells;
+    std::vector<RTLIL::Cell*> comb_cells;
+
+    /// TODO not just wire, but bits in wire
+    std::set<IdString> untoggled_wires;
+    
+    unsigned int pipeline_depth;
 };
 #endif // BRISC
 
@@ -680,6 +717,7 @@ struct RTLIL::Const
 	std::vector<RTLIL::State> bits;
 
 	Const();
+    /// 8-const's per str char, not 1
 	Const(std::string str);
 	Const(int val, int width = 32);
 	Const(RTLIL::State bit, int width = 1);

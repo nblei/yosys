@@ -23,6 +23,7 @@
 #include "frontends/verilog/verilog_frontend.h"
 #include "backends/ilang/ilang_backend.h"
 
+#include <cstddef>
 #include <string.h>
 #include <algorithm>
 
@@ -98,35 +99,65 @@ RTLIL::Poset::cmp(const RTLIL::Const& L, const RTLIL::Const& R)
 
 
 bool
-RTLIL::Poset::insert(const RTLIL::Const& L)
+RTLIL::Poset::insert(RTLIL::Const& L)
 {
     bool rv = false;
-    std::vector<std::list<Yosys::RTLIL::Const>::iterator> elem_to_remove;
+    log("Poset Size: %lu\n", this->max_poset_.size());
     for (auto R = this->max_poset_.begin(); R != this->max_poset_.end(); ++R) {
         RTLIL::Compr c = RTLIL::Poset::cmp(L, *R);
+        bool breaker;
         switch (c) {
             // If LT or EQ, then we have no need to do anything -- there is
             // already a larger element found, so we goto done
             case (RTLIL::Compr::LT):
+                log("\tLT!\n");
             case (RTLIL::Compr::EQ):
+                log("\tEQ!\n");
                 goto done;
             case (RTLIL::Compr::GT):
-                elem_to_remove.push_back(R);
+                log("\tGT!\n");
+                breaker = false;
+                for (auto etrit =  elem_to_remove.begin();
+                          etrit != elem_to_remove.end();
+                          ++etrit) {
+                    if (R == *etrit) {
+                        breaker = true;
+                        break;
+                    }
+                }
+                if (!breaker)
+                    elem_to_remove.push_back(R);
                 break;
             case (RTLIL::Compr::NC):
+                log("\tNC!\n");
                 break;
             case (RTLIL::Compr::ER):
+                log("\tER!\n");
                 log_error("Unexpected compare value in %s",
                           __PRETTY_FUNCTION__);
                 exit(1);
         }
     }
     rv = true;
+    this->clean();
+    this->max_poset_.push_back(L);
+done:
+    return rv;
+}
+
+void
+RTLIL::Poset::clean()
+{
     for (auto it : elem_to_remove) {
         this->max_poset_.remove(*it);
     }
-done:
-    return rv;
+    elem_to_remove.clear();
+}
+
+size_t
+RTLIL::Poset::size()
+{
+    return this->max_poset_.size();
 }
 #endif // BRISC
 
@@ -909,6 +940,7 @@ namespace {
 
 		void check_gate(const char *ports)
 		{
+            log("Port: %s\n", ports);
 			if (cell->parameters.size() != 0)
 				error(__LINE__);
 
@@ -2641,6 +2673,9 @@ bool RTLIL::Cell::input(RTLIL::IdString portname) const
 	return false;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// @brief 
+///////////////////////////////////////////////////////////////////////////////
 bool RTLIL::Cell::output(RTLIL::IdString portname) const
 {
 	if (yosys_celltypes.cell_known(type))
@@ -2875,7 +2910,10 @@ RTLIL::SigSpec::SigSpec()
 
 RTLIL::SigSpec::SigSpec(const RTLIL::SigSpec &other)
 {
-	*this = other;
+    this->width_ = other.width_;
+    this->hash_ = other.hash_;
+    this->chunks_ = other.chunks_;
+    this->bits_ = other.bits_;
 }
 
 RTLIL::SigSpec::SigSpec(std::initializer_list<RTLIL::SigSpec> parts)

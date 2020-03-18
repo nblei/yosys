@@ -1,0 +1,36 @@
+{
+    "instructions":{
+        "pass": {
+            "ports": {
+                "\\a": "0",
+                "\\b": "0"
+            },
+            "regs": {}
+        },
+        "reset": {
+            "ports": {
+                "\\a": "1'b0",
+                "\\b": "1'b0",
+                "\\cin": "1'b0"
+            },
+            "regs": {}
+        },
+        "nop": {
+            "ports": {
+                "\\a": "1'b0",
+                "\\b": "1'b0",
+                "\\cin": "1'b0"
+            },
+            "regs": {}
+        },
+        "half": {
+            "ports": {
+                "\\cin": "1'b0"
+            },
+            "regs": {}
+        }
+    },
+    "pipeline-depth": 1,
+    "clock": "\\clk"
+}
+
