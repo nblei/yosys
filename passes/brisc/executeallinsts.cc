@@ -79,7 +79,7 @@ struct ExecuteAllInstsPass: public ScriptPass{
             if (design->brisc.poset.size() == 1) {
                 changed = solo == design->brisc.poset.max_poset_.front();
             }
-
+			ce.pop(); // Thanks Kuilin
         } while ( design->brisc.poset.size() > 1 || (!changed) );
     }
 
